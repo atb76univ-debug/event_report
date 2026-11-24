@@ -1,0 +1,24 @@
+{
+  "name": "EVENT REPORT",
+  "short_name": "EVENT REPORT",
+  "description": "イベントの写真・動画から12秒のイベントレポートを作成",
+  "start_url": "./report/",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f4ee",
+  "theme_color": "#213b2e",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

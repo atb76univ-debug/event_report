@@ -9,7 +9,7 @@ function build(){
  const title=el('title').value.trim(),host=el('host').value.trim().replace(/\s*\n\s*/g,' ');
  const mentions=[...new Set(tokens(el('postMention').value,'@'))].join(' ');
  const tags=[...new Set(['#筑波大学','#未来社会デザイン棟',...tokens(el('postTags').value,'#')])].join(' ');
- const eventBlock=['【Event Report】',title?'「'+title+'」':'',[host?'('+host+')':'',mentions].filter(Boolean).join(' '),el('postPlace').value.trim()?'📍'+el('postPlace').value.trim():''].filter(Boolean).join('\n');
+ const eventBlock=['【EVENT REPORT】',title?'「'+title+'」':'',[host?'('+host+')':'',mentions].filter(Boolean).join(' '),el('postPlace').value.trim()?'📍'+el('postPlace').value.trim():''].filter(Boolean).join('\n');
  const reservationBlock='施設利用予約はホームページから🔗\nhttps://stb.tsukuba.ac.jp/~miraishakai/reservation/';
  return [el('postHook').value.trim(),eventBlock,reservationBlock,tags].filter(Boolean).join('\n\n');
 }

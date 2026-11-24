@@ -1,4 +1,4 @@
-# Event Report 作成ツール（GitHub Pages用）
+# EVENT REPORT 作成ツール（GitHub Pages用）
 
 ## 公開前の重要事項
 
@@ -23,3 +23,9 @@ GitHub Pages自体の非公開公開はGitHub Enterprise CloudのOrganization向
 5. 公開後、`https://<ユーザー名>.github.io/<リポジトリ名>/` を開きます。
 
 **注意：上記手順は公開サイトになります。メンバー限定アクセスを実現する手順ではありません。**
+
+
+### フォント
+画面表示と書き出しには Google Fonts の Zen Kaku Gothic New を使用します。初回アクセス時にインターネット接続が必要です。
+
+背景動画は添付された background_v3.mp4 に差し替え済みです。動画に2026が焼き込まれているため年は固定です。
