@@ -18,7 +18,7 @@ function fittedText(text,x,y,max,size,weight=500){
 // Only the neutral-gray media window of the v4 artwork is made transparent.
 function draw(){
  if(!ready||template.readyState<2)return;
- const box={x:0,y:373,w:1080,h:1027};
+ const box={x:0,y:373,w:1080,h:1207};
 
  // 1) Bottom layer: uploaded photo/video inside the central window.
  ctx.clearRect(0,0,1080,1920);
