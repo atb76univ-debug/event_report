@@ -2,55 +2,74 @@ const $=id=>document.getElementById(id),canvas=$('canvas'),ctx=canvas.getContext
 const originalYearSource='assets/background_v3.mp4?v=v3-1',customYearSource=originalYearSource;
 let sourceHasOriginalYear=true,yearSourceRequest=0;
 const template=document.createElement('video');template.src=customYearSource;template.muted=true;template.playsInline=true;template.preload='auto';
-const star=document.createElement('canvas');star.width=360;star.height=330;const sx=star.getContext('2d',{willReadFrequently:true});
+const overlayCanvas=document.createElement('canvas');overlayCanvas.width=1080;overlayCanvas.height=1920;const overlayCtx=overlayCanvas.getContext('2d',{willReadFrequently:true});
 let items=[];
 let selected=0,t=0,playing=false,recording=false,active=-1,ready=false;
 function load(item){item.fit='cover';item.x=50;item.y=50;item.start??=0;return new Promise((resolve,reject)=>{let e=item.el=document.createElement(item.type==='video'?'video':'img');if(item.type==='video'){e.muted=true;e.playsInline=true;e.preload='auto';e.onloadeddata=resolve;e.onerror=reject;}else{e.onload=resolve;e.onerror=reject;}e.src=item.src;});}
 function cards(){let root=$('cards');root.replaceChildren();$('mediaCount').textContent=items.length+'素材';if(!items.length){let empty=document.createElement('p');empty.className='hint';empty.textContent='素材がありません。写真・動画を追加してください。';root.append(empty);}items.forEach((it,i)=>{let c=document.createElement('div');c.className='card'+(i===selected?' selected':'');let im=document.createElement('img');im.src=it.type==='image'?it.src:'assets/video-placeholder.svg';let text=document.createElement('div'),b=document.createElement('b'),sm=document.createElement('small');b.textContent=it.name;sm.textContent=`${(12*i/items.length).toFixed(1)}–${(12*(i+1)/items.length).toFixed(1)}秒 · ${it.type==='video'?'動画':'写真'}`;text.append(b,sm);c.append(im,text);let order=document.createElement('div');order.className='order';for(let dir of [-1,1]){let btn=document.createElement('button');btn.textContent=dir<0?'↑':'↓';btn.setAttribute('aria-label',dir<0?'前に移動':'後ろに移動');btn.disabled=i+dir<0||i+dir>=items.length;btn.onclick=e=>{e.stopPropagation();pause();[items[i],items[i+dir]]=[items[i+dir],items[i]];selected=i+dir;cards();controls();seek(t);};order.append(btn);}let remove=document.createElement('button');remove.textContent='削除';remove.className='remove';remove.setAttribute('aria-label',it.name+'を削除');remove.onclick=async e=>{e.stopPropagation();if(recording)return;pause();const current=items[selected];items.splice(i,1);if(it.type==='video')it.el.pause();if(it.src.startsWith('blob:'))URL.revokeObjectURL(it.src);selected=Math.max(0,items.indexOf(current));selected=Math.min(selected,Math.max(0,items.length-1));active=-1;cards();controls();await seek(0);$('status').textContent=it.name+'を構成から削除しました。元ファイルは残っています。';};order.append(remove);c.append(order);c.onclick=()=>{if(recording)return;selected=i;cards();controls();seek(12*i/items.length);};root.append(c);});}
 function controls(){let a=items[selected];for(let id of ['fit','panX','panY','clipStart'])$(id).disabled=!a;$('play').disabled=!items.length;$('export').disabled=!items.length;if(!a)return;$('fit').value=a.fit;$('panX').value=a.x;$('panY').value=a.y;$('clipStart').disabled=a.type!=='video';$('clipStart').value=a.start;$('clipStart').max=a.type==='video'?Math.max(0,a.el.duration-12/items.length):0;}
-function fittedText(text,x,y,max,size,weight=800){
+function fittedText(text,x,y,max,size,weight=500){
  const family='"Zen Kaku Gothic New",sans-serif';
- ctx.font=`${weight} ${size}px ${family}`;
- while(ctx.measureText(text).width>max&&size>12)ctx.font=`${weight} ${--size}px ${family}`;
+ ctx.font=`500 ${size}px ${family}`;
+ while(ctx.measureText(text).width>max&&size>12)ctx.font=`500 ${--size}px ${family}`;
  ctx.fillText(text,x,y);
 }
-// Keep the source video's background, heading, and animated stars frame for frame.
-function draw(){if(!ready||template.readyState<2)return;if(!items.length){ctx.fillStyle='#f5f4ee';ctx.fillRect(0,0,1080,1920);ctx.fillStyle='#7b8078';ctx.textAlign='center';ctx.textBaseline='middle';fittedText('写真・動画を追加してください',540,960,900,42,500);$('seek').value=0;$('time').textContent='0:00 / 0:12';return;}ctx.drawImage(template,0,0,1080,1920);
-// Preserve the v3 template's lower-left star above the inserted media.
-sx.clearRect(0,0,360,330);
-sx.drawImage(template,0,1070,360,330,0,0,360,330);
- let pixels=sx.getImageData(0,0,360,330),d=pixels.data;
- for(let i=0;i<d.length;i+=4){
-  const r=d[i],g=d[i+1],b=d[i+2];
-  if(!(r>220&&g>110&&g<230&&b<85&&r>g+35))d[i+3]=0;
- }
- sx.putImageData(pixels,0,0);
-ctx.fillStyle='white';ctx.textAlign='left';ctx.textBaseline='alphabetic';
-// 2026 uses the original video pixels, including its original entrance.
-// Only custom years need a separate text layer over the cleaned background.
-if(!sourceHasOriginalYear){
- const yearProgress=Math.max(0,Math.min(1,(t-.08)/.52));
- ctx.save();ctx.globalAlpha=Math.max(0,Math.min(1,(t-.04)/.18));ctx.translate(245,270);ctx.scale(.65+.35*yearProgress,.65+.35*yearProgress);fittedText($('year').value,-150,34,310,100,800);ctx.restore();
-}
+// Composite order (back to front): uploaded photo/video -> v3 background design -> information text.
+// Only the white center window of the v3 artwork is made transparent.
+function draw(){
+ if(!ready||template.readyState<2)return;
+ const box={x:0,y:373,w:1080,h:981};
 
-let a=items[Math.min(items.length-1,Math.floor(t/12*items.length))],e=a?.el,w=e?.videoWidth||e?.naturalWidth,h=e?.videoHeight||e?.naturalHeight;const box={x:0,y:373,w:1080,h:981};ctx.fillStyle='#f7f7ed';ctx.fillRect(box.x,box.y,box.w,box.h);if(w&&h){let k=a.fit==='cover'?Math.max(box.w/w,box.h/h):Math.min(box.w/w,box.h/h);ctx.save();ctx.beginPath();ctx.rect(box.x,box.y,box.w,box.h);ctx.clip();ctx.drawImage(e,box.x+(box.w-w*k)*a.x/100,box.y+(box.h-h*k)*a.y/100,w*k,h*k);ctx.restore();}else{ctx.fillStyle='#687a6c';fittedText('写真・動画を追加してください',160,950,760,45);}
-// Match the reference: enter from the right at 0.16 s and settle at 0.80 s.
-const progress=Math.max(0,Math.min(1,(t-.16)/.64));
-const textSlide=800*Math.pow(1-progress,3);
-// The white information band travels with both text rows. Keep the source
-// background visible to its left, and preserve the original animated star.
-ctx.fillStyle='white';if(progress>0)ctx.fillRect(148+textSlide,1400,1080,177);ctx.drawImage(star,0,1070);
-ctx.save();ctx.translate(textSlide,0);ctx.fillStyle='black';ctx.textAlign='left';
- let host=$('host').value.split('\n').map(s=>s.trim()).filter(Boolean);
- if(host.length>1){
-  fittedText(host[0],330,1445,720,36,700);
-  fittedText(host.slice(1).join(' '),330,1484,720,36,700);
-  fittedText($('title').value,330,1540,720,46,800);
- }else{
-  fittedText(host[0]||'',330,1477,720,53,700);
-  fittedText($('title').value,330,1540,720,48,800);
+ // 1) Bottom layer: uploaded photo/video inside the central window.
+ ctx.clearRect(0,0,1080,1920);
+ ctx.fillStyle='#f7f7ed';
+ ctx.fillRect(box.x,box.y,box.w,box.h);
+ if(items.length){
+  const a=items[Math.min(items.length-1,Math.floor(t/12*items.length))];
+  const e=a?.el,w=e?.videoWidth||e?.naturalWidth,h=e?.videoHeight||e?.naturalHeight;
+  if(w&&h){
+   const k=a.fit==='cover'?Math.max(box.w/w,box.h/h):Math.min(box.w/w,box.h/h);
+   ctx.save();ctx.beginPath();ctx.rect(box.x,box.y,box.w,box.h);ctx.clip();
+   ctx.drawImage(e,box.x+(box.w-w*k)*a.x/100,box.y+(box.h-h*k)*a.y/100,w*k,h*k);
+   ctx.restore();
+  }
  }
- ctx.restore();ctx.save();ctx.globalAlpha=Math.max(0,Math.min(1,(t-.16)/.64));ctx.translate(textSlide*.55,0);ctx.fillStyle='white';ctx.textAlign='right';fittedText('@ '+$('venue').value,1017,1663,880,61,800);ctx.restore();$('seek').value=t;$('time').textContent=`0:${String(Math.floor(t)).padStart(2,'0')} / 0:12`;}
+
+ // 2) Middle layer: animated background design. Key out only the blank white window.
+ overlayCtx.clearRect(0,0,1080,1920);
+ overlayCtx.drawImage(template,0,0,1080,1920);
+ const windowPixels=overlayCtx.getImageData(box.x,box.y,box.w,box.h);
+ const px=windowPixels.data;
+ for(let i=0;i<px.length;i+=4){
+  const r=px[i],g=px[i+1],b=px[i+2];
+  if(r>238&&g>238&&b>238&&Math.max(r,g,b)-Math.min(r,g,b)<10)px[i+3]=0;
+ }
+ overlayCtx.putImageData(windowPixels,box.x,box.y);
+ ctx.drawImage(overlayCanvas,0,0);
+
+ // 3) Top layer: information text, drawn above both the background design and media.
+ ctx.fillStyle='white';ctx.textAlign='left';ctx.textBaseline='alphabetic';
+ const progress=Math.max(0,Math.min(1,(t-.16)/.64));
+ const textSlide=800*Math.pow(1-progress,3);
+ ctx.fillStyle='white';
+ if(progress>0)ctx.fillRect(148+textSlide,1400,1080,177);
+ ctx.save();ctx.translate(textSlide,0);ctx.fillStyle='black';ctx.textAlign='left';
+ const host=$('host').value.split('\n').map(s=>s.trim()).filter(Boolean);
+ if(host.length>1){
+  fittedText(host[0],330,1445,720,36,500);
+  fittedText(host.slice(1).join(' '),330,1484,720,36,500);
+  fittedText($('title').value,330,1540,720,46,500);
+ }else{
+  fittedText(host[0]||'',330,1477,720,53,500);
+  fittedText($('title').value,330,1540,720,48,500);
+ }
+ ctx.restore();
+ ctx.save();ctx.globalAlpha=Math.max(0,Math.min(1,(t-.16)/.64));ctx.translate(textSlide*.55,0);
+ ctx.fillStyle='white';ctx.textAlign='right';
+ fittedText('@ '+$('venue').value,1017,1663,880,61,500);
+ ctx.restore();
+ $('seek').value=t;$('time').textContent=`0:${String(Math.floor(t)).padStart(2,'0')} / 0:12`;
+}
 
 async function at(e,time){time=Math.max(0,Math.min(time,e.duration-.03));if(Math.abs(e.currentTime-time)<.015&&e.readyState>=2)return;await new Promise((resolve,reject)=>{let timeout=setTimeout(()=>{cleanup();reject(Error('動画の読み込みがタイムアウトしました'));},10000);function cleanup(){clearTimeout(timeout);e.removeEventListener('seeked',done);e.removeEventListener('error',fail);}function done(){cleanup();resolve();}function fail(){cleanup();reject(Error('動画を読み込めませんでした'));}e.addEventListener('seeked',done);e.addEventListener('error',fail);e.currentTime=time;});}
 async function syncMedia(force=false){if(!items.length){active=-1;return;}let i=Math.min(items.length-1,Math.floor(t/12*items.length));let a=items[i];if(force||i!==active){for(let it of items)if(it.type==='video')it.el.pause();active=i;if(a.type==='video'){await at(a.el,a.start+t-i*12/items.length);if(playing)await a.el.play();}}}
@@ -82,4 +101,4 @@ $('year').oninput=async()=>{
 for(let id of ['fit','panX','panY','clipStart'])$(id).oninput=()=>{let a=items[selected];if(!a)return;a.fit=$('fit').value;a.x=+$('panX').value;a.y=+$('panY').value;a.start=Math.max(0,Math.min(+$('clipStart').value||0,+$('clipStart').max));if(id==='clipStart')seek(t);draw();};
 $('upload').onchange=async e=>{pause();try{for(let file of e.target.files){let a={name:file.name,src:URL.createObjectURL(file),type:file.type.startsWith('video')?'video':'image'};await load(a);items.push(a);}selected=items.length-1;cards();controls();await seek(0);$('status').textContent='素材を追加しました。各素材は全体12秒の中で均等に表示されます。';e.target.value='';}catch(err){$('status').textContent='素材を読み込めません。HEICはJPEGに変換して追加してください。';}};
 $('export').onclick=async()=>{if(!items.length)return;if(!window.MediaRecorder||!canvas.captureStream){$('status').textContent='このブラウザは動画書き出し非対応です。Chromeで開いてください。';return;}let mime=['video/mp4;codecs=avc1.42E01E','video/webm;codecs=vp9','video/webm'].find(x=>MediaRecorder.isTypeSupported(x));if(!mime){$('status').textContent='対応する動画形式がありません。Chromeで開いてください。';return;}let stream,rec;try{await seek(0);recording=true;$('export').disabled=true;$('play').disabled=true;document.querySelectorAll('input,textarea,select,.card button').forEach(e=>e.disabled=true);stream=canvas.captureStream(30);let chunks=[];rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:10000000});rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};let stopped=new Promise((resolve,reject)=>{rec.onstop=resolve;rec.onerror=reject;});rec.start(250);$('status').textContent='12秒の動画を書き出しています。この画面を開いたままお待ちください。';await play();if(!playing)throw Error('再生を開始できませんでした');await new Promise((resolve,reject)=>{let timer=setTimeout(()=>{template.removeEventListener('ended',done);reject(Error('書き出しがタイムアウトしました'));},20000);function done(){clearTimeout(timer);resolve();}template.addEventListener('ended',done,{once:true});});rec.stop();await stopped;stream.getTracks().forEach(x=>x.stop());let url=URL.createObjectURL(new Blob(chunks,{type:mime})),a=document.createElement('a');a.href=url;a.download=($('title').value.replace(/[\\/:*?"<>|]/g,'_')||'イベント')+'_レポート.'+(mime.startsWith('video/mp4')?'mp4':'webm');a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);$('status').textContent='動画を書き出しました（音声なし）。';}catch(e){pause();$('status').textContent='書き出しに失敗しました：'+e.message;}finally{if(rec&&rec.state!=='inactive')rec.stop();if(stream)stream.getTracks().forEach(x=>x.stop());recording=false;document.querySelectorAll('input,textarea,select').forEach(e=>e.disabled=false);$('export').disabled=false;$('play').disabled=false;cards();controls();}};
-Promise.all([new Promise((resolve,reject)=>{template.onloadeddata=resolve;template.onerror=reject;}),...items.map(load)]).then(async()=>{try{await document.fonts.load('800 58px "Zen Kaku Gothic New"');await document.fonts.load('700 38px "Zen Kaku Gothic New"');}catch(e){}ready=true;cards();controls();await seek(0);controls();$('status').textContent='写真・動画を追加して作成を始めてください。';requestAnimationFrame(loop);}).catch(()=>{$('status').textContent='素材の読み込みに失敗しました。ページを再読み込みしてください。';});
+Promise.all([new Promise((resolve,reject)=>{template.onloadeddata=resolve;template.onerror=reject;}),...items.map(load)]).then(async()=>{try{await document.fonts.load('500 58px "Zen Kaku Gothic New"');await document.fonts.load('500 38px "Zen Kaku Gothic New"');}catch(e){}ready=true;cards();controls();await seek(0);controls();$('status').textContent='写真・動画を追加して作成を始めてください。';requestAnimationFrame(loop);}).catch(()=>{$('status').textContent='素材の読み込みに失敗しました。ページを再読み込みしてください。';});
