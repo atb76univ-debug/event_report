@@ -58,13 +58,18 @@ function draw(){
  
  ctx.save();ctx.translate(textSlide,0);ctx.fillStyle='black';ctx.textAlign='left';
  const host=$('host').value.split('\n').map(s=>s.trim()).filter(Boolean);
+ const eventTitle=$('title').value.trim();
  if(host.length>1){
-  fittedText(host[0],330,1445,720,36,500);
-  fittedText(host.slice(1).join(' '),330,1484,720,36,500);
-  fittedText($('title').value,330,1540,720,46,500);
+  // Host is supporting information; the event title gets the stronger visual emphasis.
+  fittedText(host[0],330,1437,720,32,500);
+  fittedText(host.slice(1).join(' '),330,1473,720,32,500);
+  fittedText(eventTitle,330,1540,720,56,500);
+ }else if(host.length===1){
+  fittedText(host[0],330,1452,720,34,500);
+  fittedText(eventTitle,330,1540,720,56,500);
  }else{
-  fittedText(host[0]||'',330,1477,720,53,500);
-  fittedText($('title').value,330,1540,720,48,500);
+  // With no host entered, center the larger event title in the information band.
+  fittedText(eventTitle,330,1510,720,68,500);
  }
  ctx.restore();
  ctx.save();ctx.globalAlpha=Math.max(0,Math.min(1,(t-.16)/.64));ctx.translate(textSlide*.55,0);
