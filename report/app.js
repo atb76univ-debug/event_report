@@ -1,5 +1,5 @@
 const $=id=>document.getElementById(id),canvas=$('canvas'),ctx=canvas.getContext('2d');
-const originalYearSource='assets/background_v3.mp4?v=v3-1',customYearSource=originalYearSource;
+const originalYearSource='assets/background_v4.mp4?v=v4-gray-window-1',customYearSource=originalYearSource;
 let sourceHasOriginalYear=true,yearSourceRequest=0;
 const template=document.createElement('video');template.src=customYearSource;template.muted=true;template.playsInline=true;template.preload='auto';
 const overlayCanvas=document.createElement('canvas');overlayCanvas.width=1080;overlayCanvas.height=1920;const overlayCtx=overlayCanvas.getContext('2d',{willReadFrequently:true});
@@ -15,10 +15,10 @@ function fittedText(text,x,y,max,size,weight=500){
  ctx.fillText(text,x,y);
 }
 // Composite order (back to front): uploaded photo/video -> v3 background design -> information text.
-// Only the white center window of the v3 artwork is made transparent.
+// Only the neutral-gray media window of the v4 artwork is made transparent.
 function draw(){
  if(!ready||template.readyState<2)return;
- const box={x:0,y:373,w:1080,h:981};
+ const box={x:0,y:373,w:1080,h:1027};
 
  // 1) Bottom layer: uploaded photo/video inside the central window.
  ctx.clearRect(0,0,1080,1920);
@@ -35,14 +35,18 @@ function draw(){
   }
  }
 
- // 2) Middle layer: animated background design. Key out only the blank white window.
+ // 2) Middle layer: animated background design. Key out only the neutral-gray media window.
  overlayCtx.clearRect(0,0,1080,1920);
  overlayCtx.drawImage(template,0,0,1080,1920);
  const windowPixels=overlayCtx.getImageData(box.x,box.y,box.w,box.h);
  const px=windowPixels.data;
  for(let i=0;i<px.length;i+=4){
   const r=px[i],g=px[i+1],b=px[i+2];
-  if(r>238&&g>238&&b>238&&Math.max(r,g,b)-Math.min(r,g,b)<10)px[i+3]=0;
+  // The supplied v4 template uses a neutral gray (#dfdfdf) as the media window.
+  // Key out only pixels close to that gray; preserve the yellow star and other artwork.
+  const neutral=Math.max(r,g,b)-Math.min(r,g,b);
+  const grayLevel=(r+g+b)/3;
+  if(grayLevel>208&&grayLevel<238&&neutral<7)px[i+3]=0;
  }
  overlayCtx.putImageData(windowPixels,box.x,box.y);
  ctx.drawImage(overlayCanvas,0,0);
@@ -51,8 +55,7 @@ function draw(){
  ctx.fillStyle='white';ctx.textAlign='left';ctx.textBaseline='alphabetic';
  const progress=Math.max(0,Math.min(1,(t-.16)/.64));
  const textSlide=800*Math.pow(1-progress,3);
- ctx.fillStyle='white';
- if(progress>0)ctx.fillRect(148+textSlide,1400,1080,177);
+ 
  ctx.save();ctx.translate(textSlide,0);ctx.fillStyle='black';ctx.textAlign='left';
  const host=$('host').value.split('\n').map(s=>s.trim()).filter(Boolean);
  if(host.length>1){
